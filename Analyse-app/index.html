@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Omfattende karakteranalyse med personlige elevrapporter</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="app-header">
+            <h1>Karakteranalyse</h1>
+            <p class="app-subtitle">Omfattende karakteranalyse med personlige elevrapporter</p>
+        </header>
+
+        <section class="upload-section card">
+            <div class="card__body">
+                <div id="upload-area" class="upload-area">
+                    <div class="upload-icon">📊</div>
+                    <h3>Last opp Excel-fil</h3>
+                    <p>Dra og slipp Excel-fil her eller klikk for å velge.</p>
+                    <p><small>Støtter .xlsx, .xls, .csv med norske karakterer (f.eks. 5+, 4-, 3).</small></p>
+                    <button type="button" class="btn btn--primary" onclick="document.getElementById('file-input').click()">
+                        Velg Excel-fil
+                    </button>
+                    <input type="file" id="file-input" class="file-input" accept=".xlsx,.xls,.csv">
+                </div>
+                <div id="upload-progress" class="upload-progress hidden">
+                    <p id="progress-action-text">Behandler fil...</p>
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill" style="width: 0%;"></div>
+                    </div>
+                    <p id="progress-text" class="progress-text">0%</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="config-section" class="config-section hidden card">
+            <div class="card__body">
+                <h2>Konfigurer analyse og rapport</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="school-name" class="form-label">Skolenavn</label>
+                        <input type="text" id="school-name" class="form-control" placeholder="Fyll inn skolenavn">
+                    </div>
+                    <div class="form-group">
+                        <label for="subject" class="form-label">Fag</label>
+                        <input type="text" id="subject" class="form-control" placeholder="Fyll inn fagnavn">
+                    </div>
+                    <div class="form-group">
+                        <label for="school-year" class="form-label">Skoleår/Periode</label>
+                        <input type="text" id="school-year" class="form-control" placeholder="Eks: 2024-2025 Høst">
+                    </div>
+                </div>
+                 <div class="form-group logo-upload-group">
+                    <label for="logo-input" class="form-label">Last opp logo (valgfritt, for PDF):</label>
+                    <input type="file" id="logo-input" class="form-control" accept="image/png, image/jpeg, image/svg+xml">
+                    <img id="logo-preview" src="#" alt="Logo forhåndsvisning" class="hidden"/>
+                </div>
+                
+                <!-- Nytt valg for +/- håndtering -->
+                <div class="form-group">
+                    <label for="plus-minus-handling" class="form-label">Hvordan skal +/- karakterer behandles?</label>
+                    <select id="plus-minus-handling" class="form-control">
+                        <option value="decimal" selected>5+ blir 5.3, 5- blir 4.7 osv.</option>
+                        <option value="ignore">5+ blir 5, 5- blir 5 (ignorer +/-)</option>
+                    </select>
+                </div>
+
+                <div class="assessment-columns">
+                    <h3>Velg vurderingskolonner for analyse og rapporter</h3>
+                    <div id="column-checkboxes" class="checkbox-grid">
+                        <!-- Checkboxes populeres av JS -->
+                    </div>
+                </div>
+                <button id="analyze-btn" class="btn btn--primary btn--lg btn--full-width">Start analyse</button>
+            </div>
+        </section>
+
+        <section id="results-section" class="results-section hidden">
+            <div class="results-header">
+                <h2>Analyseresultater</h2>
+                <div class="school-info">
+                    <span id="display-school">Skolenavn</span> • 
+                    <span id="display-subject">Fag</span> • 
+                    <span id="display-year">Skoleår</span>
+                </div>
+            </div>
+
+            <div class="summary-cards">
+                <div class="summary-card">
+                    <div class="summary-value" id="total-students">0</div>
+                    <div class="summary-label">Totalt antall elever</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-value" id="average-grade-overall">0.0</div>
+                    <div class="summary-label">Gjennomsnittskarakter (alle)</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-value" id="assessments-count">0</div>
+                    <div class="summary-label">Antall vurderinger valgt</div>
+                </div>
+                 <div class="summary-card">
+                    <div class="summary-value" id="pass-rate">0%</div>
+                    <div class="summary-label">Andel bestått (karakter >= 2)</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-value" id="grade-improvement-percentage">0%</div>
+                    <div class="summary-label">Elever m/ positiv utvikling</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-value" id="high-performers-count">0</div>
+                    <div class="summary-label">Antall karakterer 5-6</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-value" id="medium-performers-count">0</div>
+                    <div class="summary-label">Antall karakterer 3-4</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-value" id="low-performers-count">0</div>
+                    <div class="summary-label">Antall karakterer < 2</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card__body">
+                    <h3>Detaljert statistikk per vurdering</h3>
+                    <div class="table-container">
+                        <table class="stats-table">
+                            <tbody id="stats-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+             <div class="card student-categories-card">
+                <div class="card__body">
+                    <h3>Elevkategorier (basert på gjennomsnitt av valgte vurderinger, fordelt på kvartiler)</h3>
+                    <p id="quartile-info-text" style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-bottom: var(--space-12); text-align: center;">
+                        Kvartilgrenser vil vises her etter analyse.
+                    </p>
+                    <div class="student-categories-grid">
+                        <div class="category-column">
+                            <h5>Laveste kvartil (<span class="quartile-threshold" id="q1-threshold-display">Q1</span>)</h5>
+                            <ul id="quartile1-list" class="category-list"></ul>
+                        </div>
+                        <div class="category-column">
+                            <h5>Nedre midtre kvartil (<span class="quartile-threshold" id="q2-threshold-display">Median</span>)</h5>
+                            <ul id="quartile2-list" class="category-list"></ul>
+                        </div>
+                        <div class="category-column">
+                            <h5>Øvre midtre kvartil (<span class="quartile-threshold" id="q3-threshold-display">Q3</span>)</h5>
+                            <ul id="quartile3-list" class="category-list"></ul>
+                        </div>
+                        <div class="category-column">
+                            <h5>Høyeste kvartil (>=<span class="quartile-threshold" id="q3-upper-threshold-display">Q3</span>)</h5>
+                            <ul id="quartile4-list" class="category-list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card__body">
+                    <h3>Klasseutvikling og nivågrupper (basert på individuelle vurderinger)</h3>
+                    <div class="visualizations">
+                        <div class="chart-container">
+                             <h4>Karakterutvikling over tid (klassesnitt per vurdering)</h4>
+                            <canvas id="class-progress-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                             <h4>Nivågruppeutvikling over tid (antall elever per vurdering)</h4>
+                            <canvas id="level-groups-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card__body">
+                    <h3>Andre visualiseringer</h3>
+                    <div class="visualizations">
+                        <div class="chart-container">
+                             <h4>Karakterfordeling (alle gitte karakterer i valgte vurderinger)</h4>
+                            <canvas id="distribution-chart"></canvas>
+                        </div>
+                         <div class="chart-container heatmap-table-container">
+                            <h4>Elevprestasjoner (Heatmap Tabell)</h4>
+                            <div id="heatmap-chart-table"></div> 
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                 <div class="card__body">
+                    <h3>Individuelle elevprestasjoner og PDF-rapporter</h3>
+                    <button id="generate-pdfs-btn" class="btn btn--primary btn--lg btn--full-width" style="margin-bottom: 20px;">
+                        Generer PDF-rapporter for alle elever
+                    </button>
+                     <div id="pdf-generation-progress" class="hidden upload-progress" style="margin-bottom: 1rem;">
+                        <p id="pdf-progress-text">Genererer personlige PDF-rapporter...</p>
+                        <p id="pdf-progress-count">0 av 0 fullført</p>
+                    </div>
+                    <div id="student-sparklines" class="sparklines-container">
+                        <!-- Sparklines genereres her -->
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <div id="pdf-download-links-container" class="hidden">
+             <div class="pdf-download-links-header">
+                <h4>Tilgjengelige PDF-rapporter:</h4>
+                <button id="close-pdf-links-btn" class="btn btn--secondary btn--sm">&times; Lukk</button>
+            </div>
+            <div id="pdf-links-list">
+                <!-- Lenker vil bli lagt til her -->
+            </div>
+        </div>
+    </div>
+
+    <div id="error-message" class="message-toast error-message hidden">
+        <div class="message-content">
+            <span class="message-icon">⚠️</span>
+            <span class="message-text"></span>
+        </div>
+    </div>
+    <div id="success-message" class="message-toast success-message hidden">
+         <div class="message-content">
+            <span class="message-icon">✅</span>
+            <span class="message-text"></span>
+        </div>
+    </div>
+     <div id="info-message" class="message-toast info-message hidden">
+        <div class="message-content">
+            <span class="message-icon">ℹ️</span>
+            <span class="message-text"></span>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
